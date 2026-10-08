@@ -1,0 +1,577 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Face Vault | Biometric Face Embedding & Verification System</title>
+    <!-- Modern Typography -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body class="dark-theme">
+    <!-- Background Ambient Glows -->
+    <div class="glow-orb orb-1"></div>
+    <div class="glow-orb orb-2"></div>
+    <div class="glow-grid"></div>
+
+    <div class="app-layout">
+        <!-- Sidebar / Navigation -->
+        <aside class="sidebar">
+            <div class="brand">
+                <div class="brand-icon">
+                    <i class="fa-solid fa-id-card-clip"></i>
+                    <span class="pulse-ring"></span>
+                </div>
+                <div class="brand-text">
+                    <h2>FACE<span>VAULT</span></h2>
+                    <p class="tagline">Biometric AI Engine</p>
+                </div>
+            </div>
+
+            <div class="system-status-chip">
+                <span class="status-dot live"></span>
+                <div class="status-info">
+                    <span class="status-title">Engine Active</span>
+                    <span class="status-sub" id="sidebarModelText">Facenet512 (512-D)</span>
+                </div>
+            </div>
+
+            <nav class="nav-menu">
+                <button class="nav-item active" data-tab="tab-verify" id="navVerifyBtn">
+                    <i class="fa-solid fa-camera-viewfinder"></i>
+                    <span>Live Verification</span>
+                    <span class="nav-badge" id="badgeVerifyMode">1:N Auto</span>
+                </button>
+                <button class="nav-item" data-tab="tab-register" id="navRegisterBtn">
+                    <i class="fa-solid fa-user-plus"></i>
+                    <span>Register New Face</span>
+                </button>
+                <button class="nav-item" data-tab="tab-database" id="navDatabaseBtn">
+                    <i class="fa-solid fa-database"></i>
+                    <span>Database Vault</span>
+                    <span class="nav-count" id="navUserCount">0</span>
+                </button>
+                <button class="nav-item" data-tab="tab-logs" id="navLogsBtn">
+                    <i class="fa-solid fa-clock-rotate-left"></i>
+                    <span>Audit Logs</span>
+                </button>
+                <button class="nav-item" data-tab="tab-settings" id="navSettingsBtn">
+                    <i class="fa-solid fa-sliders"></i>
+                    <span>Settings</span>
+                </button>
+            </nav>
+
+            <div class="sidebar-footer">
+                <div class="stat-mini">
+                    <div class="stat-mini-val" id="miniTotalUsers">0</div>
+                    <div class="stat-mini-label">Enrolled Faces</div>
+                </div>
+                <div class="stat-mini">
+                    <div class="stat-mini-val" id="miniMatchRate">100%</div>
+                    <div class="stat-mini-label">Match Rate</div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Content Area -->
+        <main class="main-content">
+            <!-- Top Bar -->
+            <header class="top-bar">
+                <div class="header-left">
+                    <h1 id="pageTitle">Live Face Verification & Identification</h1>
+                    <p id="pageSubtitle">Compare live camera feed against stored 512-D face embeddings</p>
+                </div>
+                <div class="header-right">
+                    <div class="quick-stat-badge">
+                        <i class="fa-solid fa-shield-halved text-cyan"></i>
+                        <span>Threshold: <strong id="headerThresholdVal">0.38</strong></span>
+                    </div>
+                    <div class="quick-stat-badge">
+                        <i class="fa-solid fa-microchip text-accent"></i>
+                        <span id="quickStatsToday">Today: <strong>0 scans</strong></span>
+                    </div>
+                    <button class="btn btn-secondary btn-icon-only" id="btnToggleSound" title="Toggle Sound Feedback">
+                        <i class="fa-solid fa-volume-high" id="soundIcon"></i>
+                    </button>
+                </div>
+            </header>
+
+            <!-- TAB 1: LIVE VERIFICATION & IDENTIFICATION -->
+            <section class="tab-pane active" id="tab-verify">
+                <div class="verify-layout">
+                    <!-- Left: Camera Feed & Biometric HUD -->
+                    <div class="camera-card panel">
+                        <div class="panel-header">
+                            <div class="panel-title">
+                                <i class="fa-solid fa-video text-cyan"></i>
+                                <span>Live Biometric Scanner</span>
+                            </div>
+                            <div class="camera-controls">
+                                <div class="segmented-control" id="verifyModeSelector">
+                                    <button class="seg-btn active" data-mode="1:N">1:N Identify</button>
+                                    <button class="seg-btn" data-mode="1:1">1:1 Verify</button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 1:1 Target User Selector (Hidden by default in 1:N mode) -->
+                        <div class="user-select-bar" id="userSelectBar" style="display: none;">
+                            <label><i class="fa-solid fa-user-check"></i> Target User to Verify:</label>
+                            <select id="targetUserSelect" class="form-select">
+                                <option value="">-- Select Registered Profile --</option>
+                            </select>
+                        </div>
+
+                        <!-- Video Viewport & Scanner Overlay -->
+                        <div class="viewport-wrapper">
+                            <video id="webcamVideo" autoplay playsinline muted></video>
+                            <canvas id="captureCanvas" style="display: none;"></canvas>
+
+                            <!-- Biometric Scanning HUD Overlay -->
+                            <div class="hud-overlay" id="hudOverlay">
+                                <div class="hud-corner top-left"></div>
+                                <div class="hud-corner top-right"></div>
+                                <div class="hud-corner bottom-left"></div>
+                                <div class="hud-corner bottom-right"></div>
+                                
+                                <div class="scan-laser" id="scanLaser"></div>
+                                
+                                <div class="hud-face-reticle" id="faceReticle">
+                                    <div class="reticle-bracket tl"></div>
+                                    <div class="reticle-bracket tr"></div>
+                                    <div class="reticle-bracket bl"></div>
+                                    <div class="reticle-bracket br"></div>
+                                    <div class="reticle-target-dot"></div>
+                                    <span class="reticle-label" id="reticleLabel">ALIGN FACE</span>
+                                </div>
+
+                                <div class="hud-info-badge">
+                                    <span id="hudFpsText">FPS: 30</span>
+                                    <span class="hud-sep">•</span>
+                                    <span id="hudResText">HD 720p</span>
+                                </div>
+                            </div>
+
+                            <!-- Camera Placeholder / Off State -->
+                            <div class="camera-placeholder" id="cameraOffPlaceholder">
+                                <i class="fa-solid fa-camera-slash placeholder-icon"></i>
+                                <h3>Camera is Inactive</h3>
+                                <p>Enable webcam access to perform real-time face verification</p>
+                                <button class="btn btn-primary" id="btnStartCamera">
+                                    <i class="fa-solid fa-power-off"></i> Start Camera
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Camera Action Buttons -->
+                        <div class="camera-action-bar">
+                            <button class="btn btn-secondary" id="btnToggleCam">
+                                <i class="fa-solid fa-camera-rotate"></i> <span id="toggleCamLabel">Stop Camera</span>
+                            </button>
+
+                            <div class="auto-scan-toggle">
+                                <label class="switch">
+                                    <input type="checkbox" id="autoScanSwitch">
+                                    <span class="slider round"></span>
+                                </label>
+                                <span class="switch-label">Continuous Auto-Scan</span>
+                            </div>
+
+                            <button class="btn btn-primary btn-glow" id="btnScanNow">
+                                <i class="fa-solid fa-expand"></i> Verify Live Face
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Right: Verification Result & Match Details -->
+                    <div class="results-card panel">
+                        <div class="panel-header">
+                            <div class="panel-title">
+                                <i class="fa-solid fa-chart-simple text-cyan"></i>
+                                <span>Verification Analysis</span>
+                            </div>
+                            <span class="badge" id="resultStatusBadge">Awaiting Face</span>
+                        </div>
+
+                        <div class="result-body" id="resultEmptyState">
+                            <div class="empty-state">
+                                <div class="empty-icon">
+                                    <i class="fa-solid fa-fingerprint"></i>
+                                </div>
+                                <h4>No Verification Run Yet</h4>
+                                <p>Position your face in front of the camera and click <strong>"Verify Live Face"</strong> to match against database embeddings.</p>
+                            </div>
+                        </div>
+
+                        <!-- Active Match Card (Populated after scan) -->
+                        <div class="result-body" id="resultActiveState" style="display: none;">
+                            <!-- Top Status Banner -->
+                            <div class="match-banner" id="matchBanner">
+                                <div class="banner-icon" id="matchBannerIcon">
+                                    <i class="fa-solid fa-circle-check"></i>
+                                </div>
+                                <div class="banner-text">
+                                    <h3 id="matchBannerTitle">Identity Verified</h3>
+                                    <p id="matchBannerSubtitle">Face embedding matched stored profile</p>
+                                </div>
+                                <div class="match-percentage" id="matchPercentageDisplay">98.5%</div>
+                            </div>
+
+                            <!-- Side-by-Side Comparison -->
+                            <div class="comparison-grid">
+                                <div class="comp-box">
+                                    <div class="comp-header"><i class="fa-solid fa-video"></i> Live Capture</div>
+                                    <div class="comp-img-wrapper">
+                                        <img id="liveResultImg" src="/static/placeholder.png" alt="Live Face">
+                                    </div>
+                                    <span class="comp-tag live">Real-time Probe</span>
+                                </div>
+
+                                <div class="comp-box">
+                                    <div class="comp-header"><i class="fa-solid fa-database"></i> Stored Vault Face</div>
+                                    <div class="comp-img-wrapper">
+                                        <img id="storedResultImg" src="/static/placeholder.png" alt="Stored Face">
+                                    </div>
+                                    <span class="comp-tag stored" id="storedResultTag">Enrolled Identity</span>
+                                </div>
+                            </div>
+
+                            <!-- Match Metrics Bar -->
+                            <div class="metrics-card">
+                                <div class="metric-row">
+                                    <span class="m-label">Similarity Score</span>
+                                    <span class="m-val" id="metricSimilarityVal">0%</span>
+                                </div>
+                                <div class="progress-bar-container">
+                                    <div class="progress-bar-fill" id="similarityProgressBar" style="width: 0%;"></div>
+                                </div>
+
+                                <div class="metrics-sub-grid">
+                                    <div class="m-sub">
+                                        <span class="m-sub-label">Cosine Distance</span>
+                                        <span class="m-sub-val" id="metricCosineVal">--</span>
+                                    </div>
+                                    <div class="m-sub">
+                                        <span class="m-sub-label">Threshold</span>
+                                        <span class="m-sub-val" id="metricThresholdVal">0.38</span>
+                                    </div>
+                                    <div class="m-sub">
+                                        <span class="m-sub-label">Latency</span>
+                                        <span class="m-sub-val" id="metricLatencyVal">-- ms</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Matched User Profile Details -->
+                            <div class="matched-profile-details" id="matchedProfileDetails">
+                                <h4><i class="fa-solid fa-id-badge text-cyan"></i> Profile Info</h4>
+                                <div class="profile-info-grid">
+                                    <div class="p-item">
+                                        <span class="p-label">Name</span>
+                                        <span class="p-val" id="profName">--</span>
+                                    </div>
+                                    <div class="p-item">
+                                        <span class="p-label">User ID</span>
+                                        <span class="p-val font-mono" id="profId">--</span>
+                                    </div>
+                                    <div class="p-item">
+                                        <span class="p-label">Department</span>
+                                        <span class="p-val" id="profDept">--</span>
+                                    </div>
+                                    <div class="p-item">
+                                        <span class="p-label">Email</span>
+                                        <span class="p-val font-mono" id="profEmail">--</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Top Candidates list for 1:N -->
+                            <div class="top-candidates-section" id="topCandidatesSection" style="display: none;">
+                                <h5><i class="fa-solid fa-users-viewfinder"></i> Top Candidates Ranked</h5>
+                                <div class="candidates-list" id="candidatesList"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- TAB 2: REGISTER NEW FACE -->
+            <section class="tab-pane" id="tab-register">
+                <div class="register-layout">
+                    <!-- Enrollment Camera / Upload Form -->
+                    <div class="panel register-panel">
+                        <div class="panel-header">
+                            <div class="panel-title">
+                                <i class="fa-solid fa-user-plus text-cyan"></i>
+                                <span>Face Enrollment & 512-D Embedding Extraction</span>
+                            </div>
+                        </div>
+
+                        <div class="register-grid">
+                            <!-- Left: Face Photo Capture / Preview -->
+                            <div class="reg-photo-col">
+                                <div class="reg-preview-wrapper" id="regPreviewWrapper">
+                                    <video id="regWebcamVideo" autoplay playsinline muted style="display: none;"></video>
+                                    <img id="regPhotoPreview" src="/static/placeholder.png" alt="Photo Preview">
+                                    
+                                    <div class="reg-overlay" id="regOverlay">
+                                        <div class="reticle-bracket tl"></div>
+                                        <div class="reticle-bracket tr"></div>
+                                        <div class="reticle-bracket bl"></div>
+                                        <div class="reticle-bracket br"></div>
+                                    </div>
+                                </div>
+
+                                <div class="reg-photo-actions">
+                                    <button type="button" class="btn btn-secondary" id="btnRegStartCam">
+                                        <i class="fa-solid fa-camera"></i> Live WebCam Snap
+                                    </button>
+                                    <button type="button" class="btn btn-primary" id="btnRegSnap" style="display: none;">
+                                        <i class="fa-solid fa-circle-dot"></i> Snap Photo
+                                    </button>
+                                    <label class="btn btn-secondary upload-btn">
+                                        <i class="fa-solid fa-upload"></i> Upload Image File
+                                        <input type="file" id="regFileInput" accept="image/*" style="display: none;">
+                                    </label>
+                                </div>
+                                <p class="reg-photo-hint">Ensure good lighting and direct front-facing view for maximum embedding precision.</p>
+                            </div>
+
+                            <!-- Right: User Information Form -->
+                            <div class="reg-form-col">
+                                <form id="registerUserForm">
+                                    <div class="form-group">
+                                        <label for="regUserId"><i class="fa-solid fa-hashtag"></i> User / Employee ID <span class="req">*</span></label>
+                                        <input type="text" id="regUserId" class="form-input" placeholder="e.g. EMP-101, JOHN_01" required>
+                                    </div>
+
+                                    <div class="form-group">
+                                        <label for="regName"><i class="fa-solid fa-user"></i> Full Name <span class="req">*</span></label>
+                                        <input type="text" id="regName" class="form-input" placeholder="e.g. Rahul Sharma" required>
+                                    </div>
+
+                                    <div class="form-row">
+                                        <div class="form-group col-half">
+                                            <label for="regDept"><i class="fa-solid fa-building"></i> Department</label>
+                                            <input type="text" id="regDept" class="form-input" placeholder="e.g. Engineering, Security" value="General">
+                                        </div>
+                                        <div class="form-group col-half">
+                                            <label for="regEmail"><i class="fa-solid fa-envelope"></i> Email Address</label>
+                                            <input type="email" id="regEmail" class="form-input" placeholder="e.g. user@company.com">
+                                        </div>
+                                    </div>
+
+                                    <!-- Vector embedding preview info box -->
+                                    <div class="embedding-info-box">
+                                        <div class="emb-info-header">
+                                            <i class="fa-solid fa-dna text-cyan"></i>
+                                            <span>Facenet512 Neural Vector Generation</span>
+                                        </div>
+                                        <p>Upon registration, DeepFace will compute a <strong>512-dimensional floating point representation</strong> of facial nodal landmarks and persist it in SQLite database.</p>
+                                    </div>
+
+                                    <div class="form-submit-row">
+                                        <button type="submit" class="btn btn-primary btn-glow btn-block" id="btnSubmitRegister">
+                                            <i class="fa-solid fa-cloud-arrow-up"></i> Extract & Save Face Embedding
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- TAB 3: DATABASE VAULT -->
+            <section class="tab-pane" id="tab-database">
+                <div class="panel">
+                    <div class="panel-header">
+                        <div class="panel-title">
+                            <i class="fa-solid fa-database text-cyan"></i>
+                            <span>Enrolled Identities Database Vault</span>
+                        </div>
+                        <div class="panel-actions">
+                            <div class="search-box">
+                                <i class="fa-solid fa-magnifying-glass"></i>
+                                <input type="text" id="dbSearchInput" placeholder="Search by name or ID...">
+                            </div>
+                            <button class="btn btn-secondary" id="btnRefreshUsers">
+                                <i class="fa-solid fa-arrows-rotate"></i> Refresh
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- User Cards Grid -->
+                    <div class="users-grid" id="usersGrid">
+                        <!-- Populated dynamically via JS -->
+                    </div>
+
+                    <div class="empty-state" id="dbEmptyState" style="display: none;">
+                        <div class="empty-icon"><i class="fa-solid fa-users-slash"></i></div>
+                        <h4>No Registered Identities Found</h4>
+                        <p>Go to the <strong>Register Face</strong> tab to enroll faces into the database.</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- TAB 4: AUDIT LOGS -->
+            <section class="tab-pane" id="tab-logs">
+                <div class="panel">
+                    <div class="panel-header">
+                        <div class="panel-title">
+                            <i class="fa-solid fa-clock-rotate-left text-cyan"></i>
+                            <span>Face Verification Audit Trail</span>
+                        </div>
+                        <div class="panel-actions">
+                            <button class="btn btn-danger-outline" id="btnClearLogs">
+                                <i class="fa-solid fa-trash-can"></i> Clear Logs
+                            </button>
+                            <button class="btn btn-secondary" id="btnRefreshLogs">
+                                <i class="fa-solid fa-arrows-rotate"></i> Refresh
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="table-responsive">
+                        <table class="data-table" id="logsTable">
+                            <thead>
+                                <tr>
+                                    <th>Snapshot</th>
+                                    <th>Timestamp</th>
+                                    <th>Identified User</th>
+                                    <th>Mode</th>
+                                    <th>Status</th>
+                                    <th>Match Score</th>
+                                    <th>Cosine Distance</th>
+                                    <th>Threshold</th>
+                                </tr>
+                            </thead>
+                            <tbody id="logsTableBody">
+                                <!-- Populated dynamically -->
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="empty-state" id="logsEmptyState" style="display: none;">
+                        <div class="empty-icon"><i class="fa-solid fa-clipboard-list"></i></div>
+                        <h4>No Verification Activity Recorded</h4>
+                        <p>All live face verifications will be logged here with precision metrics.</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- TAB 5: SYSTEM SETTINGS -->
+            <section class="tab-pane" id="tab-settings">
+                <div class="panel settings-panel">
+                    <div class="panel-header">
+                        <div class="panel-title">
+                            <i class="fa-solid fa-sliders text-cyan"></i>
+                            <span>Biometric Algorithm Parameters</span>
+                        </div>
+                    </div>
+
+                    <div class="settings-content">
+                        <!-- Threshold Adjustment -->
+                        <div class="setting-item">
+                            <div class="setting-info">
+                                <h4>Cosine Distance Match Threshold</h4>
+                                <p>Controls verification sensitivity. Lower values require strict matches (lower false acceptance), higher values allow more tolerance for lighting/angles.</p>
+                            </div>
+                            <div class="setting-control">
+                                <div class="slider-val-wrapper">
+                                    <input type="range" id="settingThresholdSlider" min="0.20" max="0.60" step="0.01" value="0.38">
+                                    <span class="slider-display font-mono" id="sliderThresholdDisplay">0.38</span>
+                                </div>
+                                <div class="slider-labels">
+                                    <span>0.20 (Strict)</span>
+                                    <span>0.38 (Recommended)</span>
+                                    <span>0.60 (Loose)</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- DeepFace Model Info -->
+                        <div class="setting-item">
+                            <div class="setting-info">
+                                <h4>Embedding Model Architecture</h4>
+                                <p>Deep neural network used for facial landmark encoding.</p>
+                            </div>
+                            <div class="setting-control">
+                                <select id="settingModelSelect" class="form-select">
+                                    <option value="Facenet512" selected>Facenet512 (512-Dimensional, SOTA Accuracy)</option>
+                                    <option value="Facenet">Facenet (128-Dimensional)</option>
+                                    <option value="VGG-Face">VGG-Face (2622-Dimensional)</option>
+                                    <option value="ArcFace">ArcFace (512-Dimensional)</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- Face Detector Backend -->
+                        <div class="setting-item">
+                            <div class="setting-info">
+                                <h4>Detector Backend</h4>
+                                <p>Computer vision engine for locating face boundaries in frames.</p>
+                            </div>
+                            <div class="setting-control">
+                                <select id="settingDetectorSelect" class="form-select">
+                                    <option value="opencv" selected>OpenCV Haar Cascades (Ultra Fast, Real-time)</option>
+                                    <option value="ssd">SSD (Single Shot Detector)</option>
+                                    <option value="retinaface">RetinaFace (High Precision)</option>
+                                    <option value="mtcnn">MTCNN</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="settings-save-bar">
+                            <button class="btn btn-primary btn-glow" id="btnSaveSettings">
+                                <i class="fa-solid fa-floppy-disk"></i> Save Configuration
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Inspect Embedding Modal -->
+    <div class="modal" id="embeddingModal">
+        <div class="modal-backdrop"></div>
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3 id="modalUserName">Face Embedding Vector Inspector</h3>
+                    <button class="modal-close" id="modalCloseBtn">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div class="modal-user-header">
+                        <img id="modalUserPhoto" src="/static/placeholder.png" alt="User">
+                        <div>
+                            <h4 id="modalUserFullName">Rahul Sharma</h4>
+                            <p class="font-mono text-cyan" id="modalUserIdBadge">ID: EMP-101</p>
+                            <p id="modalUserDept">Department: Engineering</p>
+                        </div>
+                    </div>
+                    <div class="vector-preview-box">
+                        <div class="vector-header">
+                            <span><i class="fa-solid fa-code"></i> Embedding Vector (512 Dimensions Preview):</span>
+                            <button class="btn btn-xs btn-secondary" id="btnCopyVector"><i class="fa-solid fa-copy"></i> Copy JSON</button>
+                        </div>
+                        <pre class="vector-code font-mono" id="modalVectorText">[0.0421, -0.1254, 0.0891, ...]</pre>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Notification Toast Container -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <!-- Custom JS -->
+    <script src="/static/js/app.js"></script>
+</body>
+</html>
